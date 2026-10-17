@@ -1,0 +1,22 @@
+{
+  // Browser half. Compiles to CommonJS into `.build/client` so that
+  // `scripts/build-client.mjs` can wrap the modules into the single
+  // `window.__ModuleLoader__.load({ id, factory })` bundle the web client
+  // loader expects — no bundler dependency, and the wrapper stays auditable.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // DOM types only: this half never runs under Node.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    "jsx": "react-jsx",
+    "outDir": "./.build/client",
+    "rootDir": "./src/client",
+    "declaration": false,
+    // Source maps would point at concatenated module offsets once bundled.
+    "sourceMap": false
+  },
+  "include": ["src/client/**/*.ts", "src/client/**/*.tsx"],
+  "exclude": ["node_modules", "dist", ".build"]
+}

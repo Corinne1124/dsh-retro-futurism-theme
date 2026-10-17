@@ -1,0 +1,319 @@
+/*
+ * The CRT skin: the only styling this plugin adds on top of dsh's defaults.
+ *
+ * Colours are NOT decided here. The preset states the host's own palette through
+ * `ctx.theme.overrideTokens()`, so nothing in this sheet changes a surface, a
+ * border or a text colour — and nothing overrides a radius, because the default
+ * geometry is the target.
+ *
+ * What the skin does own: the terminal type stack, the scanline/grid overlay
+ * (drawn by `html::before` / `html::after`, switched by attributes on the root
+ * element, so there is no DOM node of our own and nothing to leak), and one lit
+ * control — the composer's send button.
+ */
+
+/* ---------------------------------------------------------------- canvas */
+/*
+ * Boot CSS paints the document canvas before any plugin loads, so the token
+ * alone is not enough: whatever the shell paints underneath has to move too.
+ * Scoped to dark because light mode keeps dsh's own palette.
+ */
+body[data-ds-dark-theme] {
+  --dsh-boot-bg: #02080c;
+  background-color: #02080c;
+}
+
+/* -------------------------------------------------------------- typography */
+/* Same family token the host uses, pointed at a monospace stack, so every
+ * consumer of `--dsw-font-family` (and the `font:` shorthands built from it)
+ * follows. Declared in CSS rather than as an override because it is not an alias
+ * colour; dsh's presenter only writes snapshot tokens inline, so this survives. */
+body {
+  --dsw-font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  --ds-font-family-code: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+  letter-spacing: 0.01em;
+}
+
+/* ---------------------------------------------------------------- overlay */
+/* Both pseudo-elements are always present but invisible until a flag turns one
+ * on, so the attribute switch never changes layout. */
+html::before,
+html::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000; /* just under dsh's top-layer popups */
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Horizontal grille: 1px strands every 3px, one direction only. The pseudo-motion
+ * below slides the whole layer, so the box is grown by one pitch upwards and can
+ * never expose an edge.
+ * `--retro-layer-opacity` lets the flicker keyframes pulse relative to the layer. */
+html[data-retro-scanlines='on']::before {
+  --retro-layer-opacity: 0.7;
+  --retro-grille-pitch: 3px;
+  inset: calc(-1 * var(--retro-grille-pitch)) 0 0 0;
+  opacity: var(--retro-layer-opacity);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(var(--retro-accent, 0 240 255) / 0.16) 0,
+    rgb(var(--retro-accent, 0 240 255) / 0.16) 1px,
+    transparent 1px,
+    transparent var(--retro-grille-pitch)
+  );
+}
+
+html[data-retro-grid='on']::after {
+  --retro-layer-opacity: 0.55;
+  opacity: var(--retro-layer-opacity);
+  background-image:
+    linear-gradient(rgb(var(--retro-accent, 0 240 255) / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--retro-accent, 0 240 255) / 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* ---------------------------------------------------------------- motion */
+@keyframes dsh-retro-flicker {
+  0%,
+  100% {
+    opacity: var(--retro-layer-opacity, 0.55);
+  }
+  50% {
+    opacity: calc(var(--retro-layer-opacity, 0.55) * 0.86);
+  }
+}
+
+/* Pseudo-motion: the layer slides by exactly one pitch per cycle, so the pattern
+ * loops seamlessly and nothing in layout moves. A transform (not a background
+ * offset) keeps the animation on the compositor instead of repainting a
+ * full-screen layer every frame. */
+@keyframes dsh-retro-roll {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(var(--retro-grille-pitch, 3px));
+  }
+}
+
+/* Motion is opt-out: a rolling, flickering overlay is exactly what the media
+ * query is for. Each rule only touches a layer that is actually showing, and the
+ * two-flag rules restate `roll` so adding `flicker` never cancels the drift. */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-retro-scanlines='on']::before {
+    animation: dsh-retro-roll 2.4s linear infinite;
+  }
+
+  html[data-retro-flicker='on'][data-retro-scanlines='on']::before {
+    animation:
+      dsh-retro-roll 2.4s linear infinite,
+      dsh-retro-flicker 3.2s steps(2, end) infinite;
+  }
+
+  html[data-retro-flicker='on'][data-retro-grid='on']::after {
+    animation: dsh-retro-flicker 3.2s steps(2, end) infinite;
+  }
+}
+
+/* -------------------------------------------------- composer "add" control */
+/*
+ * "添加文件或调用指令" — the plus chip left of the input. dsh paints it with
+ * `--dsw-specific-selector`, a token other selectors in the app share, so this
+ * repaints the one button instead of the token.
+ *
+ * Selector notes: `aria-haspopup="listbox"` occurs exactly once in the composer
+ * and is not a CSS-module hash, so it survives rebuilds that rename `.add`. The
+ * base colour is the requested `#202e4d`; hover is lifted a step so it does not
+ * fall back to dsh's darker `interactive-bg-hover-solid` on pointer over.
+ */
+[data-composer-card] button[aria-haspopup='listbox'] {
+  background-color: #202e4d;
+}
+
+[data-composer-card] button[aria-haspopup='listbox']:hover:not(:disabled) {
+  background-color: #2a3a5c;
+}
+
+/* ------------------------------------------------------------- send button */
+/*
+ * Ported from the supplied template: a solid accent disc, an equal-width
+ * light/dark stripe sheet marching upwards, a white glyph on top, and a
+ * micro-glow that the hover state amplifies.
+ *
+ * Selector notes: `[data-composer-card]` scopes to the composer; the class is a
+ * CSS-module name (`<hash>_primary`), so it is matched by suffix to survive the
+ * hash changing on every build; the aria-label is deliberately not used because
+ * it is localized ("发送消息" / "Send message"). This rule is more specific than
+ * the component's own `.primary`, so no `!important` is needed.
+ *
+ * Deviations from the template, and why:
+ *  - colours are the sampled band colours of the two supplied references, not the
+ *    template's `--accent` family: normal = 图二 (`#9ddffd` light band over
+ *    `#69add2` dark band), disabled = 图一 (`#6b9be6` over `#4878c6`);
+ *  - the 1px border becomes an inset ring in `box-shadow`, because dsh fixes the
+ *    button at 34px with `border: none` and a real border would resize it;
+ *  - the stripe pitch is 34/11 (≈3.1px) rather than 38/11, so eleven equal bands
+ *    fit dsh's smaller control the way eleven fit the template's 40px one;
+ *  - the icon is a filled path in dsh, so `stroke-width` is dropped and only the
+ *    hover glow and the 0.4px optical nudge are kept.
+ */
+[data-composer-card] button[class*='_primary'] {
+  /* 图二: bright cyan disc, darker bands, white glyph. */
+  --retro-send-fill: #9ddffd;
+  --retro-send-fill-hover: #b7e9ff;
+  --retro-send-stripe-color: #69add2;
+  --retro-send-stripe-hover: #7dbcdd;
+  --retro-send-edge: #5b9fc4;
+  /* 图一: the same shape in a muted blue, for the disabled state. */
+  --retro-send-fill-disabled: #6b9be6;
+  --retro-send-stripe-disabled: #4878c6;
+  --retro-send-edge-disabled: #4470b4;
+  --retro-send-stripe: 3.1px;
+
+  position: relative;
+  overflow: hidden;
+  background-color: var(--retro-send-fill);
+  color: #fff;
+  cursor: pointer;
+  box-shadow:
+    inset 0 0 0 1px var(--retro-send-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.34),
+    0 12px 24px -15px rgb(86 134 254 / 0.88),
+    0 0 0 1px rgb(255 255 255 / 0.14);
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+/* Equal-width bands: light 0→50%, clear 50→100%, one sheet per pitch. */
+[data-composer-card] button[class*='_primary']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: linear-gradient(0deg, var(--retro-send-stripe-color) 0 50%, transparent 50% 100%);
+  background-size: 100% var(--retro-send-stripe);
+  background-repeat: repeat;
+  filter:
+    drop-shadow(0 0 0.8px rgb(255 255 255 / 0.9))
+    drop-shadow(0 0 1.6px rgb(140 180 255 / 0.45));
+  transition: filter 0.18s ease;
+  animation: dsh-retro-send-stripes 0.7s linear infinite;
+}
+
+[data-composer-card] button[class*='_primary'] > svg {
+  position: relative;
+  z-index: 1;
+  transform: translate(0.4px, -0.2px);
+  transition: filter 0.18s ease;
+}
+
+@keyframes dsh-retro-send-stripes {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 0 var(--retro-send-stripe);
+  }
+}
+
+/* Highlight: brighter bands, a heavier micro-glow and an outer halo. */
+[data-composer-card] button[class*='_primary']:hover:not(:disabled) {
+  background-color: var(--retro-send-fill-hover);
+  box-shadow:
+    inset 0 0 0 1px var(--retro-send-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.42),
+    0 12px 24px -15px rgb(86 134 254 / 0.88),
+    0 0 18px -2px rgb(130 175 255 / 0.65),
+    0 0 0 1px rgb(255 255 255 / 0.16);
+}
+
+[data-composer-card] button[class*='_primary']:hover:not(:disabled)::before {
+  background-image: linear-gradient(0deg, var(--retro-send-stripe-hover) 0 50%, transparent 50% 100%);
+  filter:
+    drop-shadow(0 0 1.2px rgb(255 255 255 / 1))
+    drop-shadow(0 0 2.4px rgb(150 190 255 / 0.72));
+}
+
+[data-composer-card] button[class*='_primary']:hover:not(:disabled) > svg {
+  filter: drop-shadow(0 0 2px rgb(255 255 255 / 0.65));
+}
+
+/* Press: back to the resting glow, like the template. */
+[data-composer-card] button[class*='_primary']:active:not(:disabled) {
+  background-color: var(--retro-send-fill);
+}
+
+[data-composer-card] button[class*='_primary']:active:not(:disabled)::before {
+  background-image: linear-gradient(0deg, var(--retro-send-stripe-color) 0 50%, transparent 50% 100%);
+  filter:
+    drop-shadow(0 0 0.8px rgb(255 255 255 / 0.9))
+    drop-shadow(0 0 1.6px rgb(140 180 255 / 0.45));
+}
+
+/* Disabled: 图一 — the muted blue disc, stalled stripes, dimmed glow. */
+[data-composer-card] button[class*='_primary']:disabled {
+  background-color: var(--retro-send-fill-disabled);
+  color: rgb(255 255 255 / 0.62);
+  cursor: not-allowed;
+  box-shadow:
+    inset 0 0 0 1px var(--retro-send-edge-disabled),
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    0 4px 12px -10px rgb(0 0 0 / 0.5);
+}
+
+/* The sampled disabled bands replace the light ones rather than fading them:
+ * a translucent resting sheet over the muted disc would not match 图一. */
+[data-composer-card] button[class*='_primary']:disabled::before {
+  animation-play-state: paused;
+  opacity: 1;
+  background-image: linear-gradient(0deg, var(--retro-send-stripe-disabled) 0 50%, transparent 50% 100%);
+  filter:
+    drop-shadow(0 0 0.6px rgb(255 255 255 / 0.45))
+    drop-shadow(0 0 1.2px rgb(140 180 255 / 0.2));
+}
+
+[data-composer-card] button[class*='_primary']:disabled > svg {
+  filter: none;
+}
+
+/* Dark theme: the template raises the resting glow and the hover halo a notch. */
+body[data-ds-dark-theme] [data-composer-card] button[class*='_primary'] {
+  box-shadow:
+    inset 0 0 0 1px var(--retro-send-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.18),
+    0 4px 12px rgb(86 134 254 / 0.3),
+    0 0 0 1px rgb(255 255 255 / 0.14);
+}
+
+body[data-ds-dark-theme] [data-composer-card] button[class*='_primary']::before {
+  filter:
+    drop-shadow(0 0 1px rgb(255 255 255 / 0.95))
+    drop-shadow(0 0 2px rgb(140 180 255 / 0.55));
+}
+
+body[data-ds-dark-theme] [data-composer-card] button[class*='_primary']:hover:not(:disabled) {
+  box-shadow:
+    inset 0 0 0 1px var(--retro-send-edge),
+    inset 0 1px 0 rgb(255 255 255 / 0.24),
+    0 4px 12px rgb(86 134 254 / 0.3),
+    0 0 22px -2px rgb(130 175 255 / 0.75),
+    0 0 0 1px rgb(255 255 255 / 0.16);
+}
+
+body[data-ds-dark-theme] [data-composer-card] button[class*='_primary']:hover:not(:disabled)::before {
+  filter:
+    drop-shadow(0 0 1.4px rgb(255 255 255 / 1))
+    drop-shadow(0 0 2.8px rgb(150 190 255 / 0.8));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-composer-card] button[class*='_primary']::before {
+    animation: none;
+  }
+}

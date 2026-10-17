@@ -1,0 +1,14 @@
+- insert:
+    # `name` is the module specifier the cordis loader resolves, so it is the
+    # package id rather than a path. To run this checkout without installing it,
+    # point `name` at the built entry instead: ./dist/index.js
+    - id: retro-futurism
+      name: dsh-retro-futurism
+      config:
+        # Published to the browser half as the boot global
+        # __DSH_RETRO_FUTURISM__ (see README, "Switching presets and effects").
+        # Both presets use dsh's own palette; they differ only in scanline tint.
+        preset: cyberpunk
+        scanlines: true
+        grid: true
+        flicker: true
