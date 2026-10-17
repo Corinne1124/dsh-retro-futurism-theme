@@ -1,4 +1,4 @@
-# dsh-retro-futurism
+# dsh-retro-futurism-theme
 
 A terminal skin for the DeepSeek Harness web GUI.
 
@@ -165,3 +165,41 @@ excess.
   skin repaints what the DOM already provides.
 - No inline `body.style` writes, so nothing has to be cleaned out of the document
   on unload.
+
+# dsh-retro-futurism-theme
+
+DeepSeek Harness Web GUI 的终端皮肤。
+
+深色模式是近黑画布、藏青色表面层级、灰色细线、蓝紫色强调色、等宽字体，外加可选的扫描线/网格叠加层。**浅色模式完全保持 dsh 出厂原样** —— 只描述了深色外观，因此不存在凭空发明的浅色对应版本。
+
+| 预设 | 调色板 | 差异 |
+| --- | --- | --- |
+| `cyberpunk`（默认） | 参考深色调色板 · dsh 浅色调色板 | 偏青色的扫描线色调 |
+| `vaporwave` | 参考深色调色板 · dsh 浅色调色板 | 偏紫色的扫描线色调 |
+
+从参考稿中采样的锚点：
+
+| 角色 | 值 | 令牌 |
+| --- | --- | --- |
+| 画布 | `#02080c` | `bg-base`、`specific-sidebar-fill` |
+| 面板 | `#030910` | `bg-layer-1`、`markdown-code-block` |
+| 凸起层 / 输入框 | `#0a1220` / `#0f1830` | `bg-layer-2`、`specific-input-major` |
+| 细线 | `rgba(210,216,223,.14…)` | `border-l1…l4` |
+| 正文文字 / 弱化文字 | `#d2d8df` / `#6f757c` | `label-primary`、`label-tertiary` |
+| 强调色 | `#747eff` | `brand-primary`、`state-business-primary`、`link` |
+| 气泡 | `#1e2d45` | `specific-bubble` |
+| 选中高亮 | `#dee4eb` | `switch-thumb` |
+
+## 它触及的范围
+
+颜色像任何主题一样通过主题服务处理：浏览器端调用 `ctx.theme.overrideTokens('dsh-retro-futurism', …)`，每个令牌传入 `{ light, dark }` 一对值，然后由 dsh 自己的呈现器写入 CSS 变量。可写表面是**别名层加上组件特定的填充色**（`--dsw-specific-bubble`、`-sidebar-fill`、`-menu`、`-input-major` 等）—— 气泡、侧边栏和菜单材质不是别名令牌。
+
+浅色模式逐字发布 dsh 自己的表达式（`var(--dsw-static-*)`、`color-mix(…)`），因此它继续按配色方案解析，并与原版 dsh 保持一致。
+
+`src/client/style.css` 承载其余部分，别无他物：
+
+- `--dsw-font-family` / `--ds-font-family-code` 上的等宽字体族；
+- 扫描线/网格叠加层，由 `html::before` / `html::after` 绘制，通过根元素上的 `data-retro-*` 属性切换（没有自己的 DOM 节点，没有 `prefers-reduced-motion: no-preference` 就不产生动效）。扫描线层是一个**水平格栅** —— 每 3px 一条 1px 细线，alpha 为 `0.16`，叠加在 `0.7` 的层不透明度之上 —— 每 2.4 秒精确滑动一个间距（使用 `transform`，因此循环无缝、布局中没有任何东西移动、动画停留在合成器上）；`grid` 仍然是粗糙的 32px 布局网格；
+- 一个发光的控件：输入框的发送按钮，匹配为 `[data-composer-card] button[class*='_primary']`（类后缀匹配可经受 CSS 模块哈希；aria-label 是本地化的，因此不使用）。移植自所提供模板：一个实心强调色圆盘，上面覆盖等宽条纹片（亮色 0→50%，透明 50→100%，间距 3.1px），每 0.7 秒向上行进一次；其上是一个白色字形；静止时有微光；悬停时有更强的光晕加外部光环；禁用时条纹片变暗并停滞；并提供 `prefers-reduced-motion` 退出选项。条纹颜色采样自两个参考稿 —— 正常态 `#9ddffd` 覆盖 `#69add2`，禁用态 `#6b9be6` 覆盖 `#4878c6` —— 因此按钮是固定调色板而非预设强调色的着色；模板的 1px 边框变成了内嵌环，这样 dsh 固定的 34px 控件不会改变尺寸。
+
+没有圆角重置、没有全局光晕、没有选中着色：参考稿是一个扁平、带边框的终端，因此皮肤重绘颜色和字体，但把几何形状和动效形态留给 dsh。

@@ -148,11 +148,12 @@ test('apply injects the stylesheet with the preset tint', async () => {
     assert.match(css, /@keyframes dsh-retro-send-stripes/, 'the marching animation is missing')
     assert.match(css, /animation: dsh-retro-send-stripes 0\.7s linear infinite/, 'the stripes do not march')
     assert.match(css, /0 0 18px -2px/, 'the hover halo is missing')
-    // The composer's "add files or run commands" chip has its own colour.
+    // The composer's "add files or run commands" chip is offset from the input
+    // surface, so the relationship — not a hard-coded value — has to survive.
     assert.match(
       css,
-      /\[data-composer-card\] button\[aria-haspopup='listbox'\] \{\s*background-color: #202e4d/,
-      'the add-files chip lost its colour',
+      /\[data-composer-card\] button\[aria-haspopup='listbox'\] \{\s*background-color: color-mix\(in srgb, var\(--dsw-specific-input-major\) 75%, #5370a4\)/,
+      'the add-files chip must be mixed from the input surface',
     )
     // Colours are the sampled bands of the two references (图二 normal, 图一 disabled).
     for (const colour of ['#9ddffd', '#69add2', '#6b9be6', '#4878c6']) {

@@ -121,21 +121,25 @@ html[data-retro-grid='on']::after {
 
 /* -------------------------------------------------- composer "add" control */
 /*
- * "添加文件或调用指令" — the plus chip left of the input. dsh paints it with
+ * "添加文件或调用命令" — the plus chip left of the input. dsh paints it with
  * `--dsw-specific-selector`, a token other selectors in the app share, so this
  * repaints the one button instead of the token.
  *
  * Selector notes: `aria-haspopup="listbox"` occurs exactly once in the composer
- * and is not a CSS-module hash, so it survives rebuilds that rename `.add`. The
- * base colour is the requested `#202e4d`; hover is lifted a step so it does not
- * fall back to dsh's darker `interactive-bg-hover-solid` on pointer over.
+ * and is not a CSS-module hash, so it survives rebuilds that rename `.add`.
+ *
+ * The colour is an offset from the input surface, not a fixed value, so it holds
+ * in both modes: 25% of `#5370a4` over `--dsw-specific-input-major`.
+ *   dark  : #0f1830 → #202e4d  (the requested chip colour, exactly)
+ *   light : #ffffff → #d4dbe8  (a soft blue-grey chip on the white composer)
+ * Hover mixes one step further (38%), which lands on #29395c in dark.
  */
 [data-composer-card] button[aria-haspopup='listbox'] {
-  background-color: #202e4d;
+  background-color: color-mix(in srgb, var(--dsw-specific-input-major) 75%, #5370a4);
 }
 
 [data-composer-card] button[aria-haspopup='listbox']:hover:not(:disabled) {
-  background-color: #2a3a5c;
+  background-color: color-mix(in srgb, var(--dsw-specific-input-major) 62%, #5370a4);
 }
 
 /* ------------------------------------------------------------- send button */
